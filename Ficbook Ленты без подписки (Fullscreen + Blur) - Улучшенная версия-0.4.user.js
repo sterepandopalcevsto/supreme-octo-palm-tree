@@ -3,7 +3,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      0.4
 // @description  Создавайте свои ленты (до 20 шт.) на ficbook.net без подписки. Полноэкранная панель с затемнением фона и дизайном в стиле сайта.
-// @author       You
+// @author       @Sterepando
 // @match        *://ficbook.net/*
 // @grant        GM_addStyle
 // @grant        GM_getValue
@@ -27,9 +27,16 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.15);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             margin-right: 5px;
+            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
         #ficFeedsToggle:hover {
             background: #7a3d00;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        #ficFeedsToggle:active {
+            transform: translateY(1px);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
 
         /* Кнопка "Сохранить как ленту" */
@@ -43,9 +50,16 @@
             font-size: 14px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.15);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
         #saveAsLentaBtn:hover {
             background: #7a3d00;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        #saveAsLentaBtn:active {
+            transform: translateY(1px);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
 
         /* Контейнер для кнопок */
@@ -60,11 +74,20 @@
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0);
+            backdrop-filter: blur(0px);
+            -webkit-backdrop-filter: blur(0px);
+            z-index: 10000;
+            display: none;
+            transition: background-color 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
+                        backdrop-filter 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+            pointer-events: none;
+        }
+        #ficFeedsOverlay.visible {
             background-color: rgba(0,0,0,0.7);
             backdrop-filter: blur(5px);
             -webkit-backdrop-filter: blur(5px);
-            z-index: 10000;
-            display: none;
+            pointer-events: auto;
         }
 
         /* Основная панель по центру */
@@ -72,15 +95,22 @@
             position: absolute;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%);
+            transform: translate(-50%, -50%) scale(0.95);
             width: 400px;
             max-height: 80vh;
             overflow-y: auto;
             background: #fff;
-            border-radius: 8px;
+            border-radius: 12px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
             padding: 20px;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            pointer-events: auto;
+        }
+        #ficFeedsPanel.visible {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
         }
 
         /* Темная тема */
@@ -154,18 +184,18 @@
         }
         .feedItem {
             background: #f5f5f5;
-            border-radius: 6px;
+            border-radius: 10px;
             padding: 14px;
             margin-bottom: 12px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             cursor: pointer;
             position: relative;
-            transition: all 0.2s ease;
+            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
         .feedItem:hover {
             background: #ebebeb;
-            transform: translateY(-2px);
-            box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
         }
         .feedName {
             font-size: 16px;
@@ -202,15 +232,21 @@
             background: #542a00;
             color: #fff;
             border: none;
-            border-radius: 4px;
-            padding: 10px 14px;
+            border-radius: 8px;
+            padding: 12px 14px;
             cursor: pointer;
             font-size: 14px;
             margin-top: 12px;
-            transition: background 0.2s ease;
+            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
         #addFeedBtn:hover {
             background: #7a3d00;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        #addFeedBtn:active {
+            transform: translateY(1px);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
 
         /* Форма добавления ленты */
@@ -261,22 +297,21 @@
         /* Уведомление */
         #ficFeedsNotification {
             position: fixed;
-            bottom: 20px;
+            bottom: -60px;
             right: 20px;
             background: rgba(40, 167, 69, 0.9);
             color: white;
             padding: 12px 20px;
-            border-radius: 4px;
+            border-radius: 10px;
             z-index: 10002;
             font-size: 14px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            transform: translateY(100px);
-            opacity: 0;
-            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
         #ficFeedsNotification.show {
-            transform: translateY(0);
-            opacity: 1;
+            bottom: 20px;
         }
     `);
 
@@ -350,8 +385,8 @@
     const ficFeedsForm = overlay.querySelector('#ficFeedsForm');
     const feedNameInput = overlay.querySelector('#feedName');
     const feedDescInput = overlay.querySelector('#feedDesc');
-    const feedURLInput  = overlay.querySelector('#feedURL');
-    const saveFeedBtn   = overlay.querySelector('#saveFeedBtn');
+    const feedURLInput = overlay.querySelector('#feedURL');
+    const saveFeedBtn = overlay.querySelector('#saveFeedBtn');
     const cancelFeedBtn = overlay.querySelector('#cancelFeedBtn');
     const closeFeedsBtn = overlay.querySelector('#closeFeedsBtn');
 
@@ -394,11 +429,23 @@
     // Переключение оверлея по кнопке "Ленты"
     toggleBtn.addEventListener('click', () => {
         overlay.style.display = 'block';
+        // Добавляем небольшую задержку для анимации
+        setTimeout(() => {
+            overlay.classList.add('visible');
+            overlay.querySelector('#ficFeedsPanel').classList.add('visible');
+        }, 10);
     });
 
     // Кнопка "Закрыть" внутри панели - единственный способ закрыть панель
     closeFeedsBtn.addEventListener('click', () => {
-        overlay.style.display = 'none';
+        const panel = overlay.querySelector('#ficFeedsPanel');
+        overlay.classList.remove('visible');
+        panel.classList.remove('visible');
+
+        // Ждем окончания анимации перед скрытием оверлея
+        setTimeout(() => {
+            overlay.style.display = 'none';
+        }, 500);
     });
 
     // Предотвращаем закрытие по клику на оверлей (вне панели)
@@ -519,6 +566,13 @@
 
         // Открываем форму добавления ленты
         overlay.style.display = 'block';
+
+        // Добавляем класс visible для активации анимации и взаимодействия
+        setTimeout(() => {
+            overlay.classList.add('visible');
+            overlay.querySelector('#ficFeedsPanel').classList.add('visible');
+        }, 10);
+
         ficFeedsForm.style.display = 'block';
 
         // Заполняем поля формы
@@ -539,6 +593,10 @@
         if (e.altKey && e.key === 'l') {
             e.preventDefault();
             overlay.style.display = 'block';
+            setTimeout(() => {
+                overlay.classList.add('visible');
+                overlay.querySelector('#ficFeedsPanel').classList.add('visible');
+            }, 10);
         }
 
         // Alt+S для сохранения текущей страницы как ленты
