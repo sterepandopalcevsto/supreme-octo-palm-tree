@@ -1,46 +1,22 @@
 // ==UserScript==
-// @name         Ficbook Ленты без подписки (Fullscreen + Blur) - Улучшенная версия
+// @name         Ficbook Ленты без подписки (Fullscreen + Blur) - Оптимизированная версия
 // @namespace    http://tampermonkey.net/
 // @version      0.4
 // @description  Создавайте свои ленты (до 20 шт.) на ficbook.net без подписки. Полноэкранная панель с затемнением фона и дизайном в стиле сайта.
-// @author       @Sterepando
+// @author       You
 // @match        *://ficbook.net/*
 // @grant        GM_addStyle
 // @grant        GM_getValue
 // @grant        GM_setValue
 // ==/UserScript==
 
-(function() {
+(async function() {
     'use strict';
 
-    // Добавляем стили, адаптированные под дизайн Ficbook
+    // Добавляем стили через одну операцию
     GM_addStyle(`
-        /* Кнопка "Ленты" в правом верхнем углу */
-        #ficFeedsToggle {
-            background: #542a00;
-            color: #fff;
-            border: none;
-            padding: 8px 14px;
-            cursor: pointer;
-            border-radius: 4px;
-            font-size: 14px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            margin-right: 5px;
-            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-        }
-        #ficFeedsToggle:hover {
-            background: #7a3d00;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-        #ficFeedsToggle:active {
-            transform: translateY(1px);
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-        }
-
-        /* Кнопка "Сохранить как ленту" */
-        #saveAsLentaBtn {
+        /* Общие стили для кнопок */
+        #ficFeedsToggle, #saveAsLentaBtn {
             background: #542a00;
             color: #fff;
             border: none;
@@ -52,15 +28,16 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
-        #saveAsLentaBtn:hover {
+        #ficFeedsToggle:hover, #saveAsLentaBtn:hover {
             background: #7a3d00;
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
-        #saveAsLentaBtn:active {
+        #ficFeedsToggle:active, #saveAsLentaBtn:active {
             transform: translateY(1px);
             box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
+        #ficFeedsToggle { margin-right: 5px; }
 
         /* Контейнер для кнопок */
         #ficFeedsButtonsContainer {
@@ -69,7 +46,7 @@
             gap: 10px;
         }
 
-        /* Полноэкранный оверлей (затемнение + размытие) */
+        /* Полноэкранный оверлей */
         #ficFeedsOverlay {
             position: fixed;
             top: 0; left: 0;
@@ -79,8 +56,7 @@
             -webkit-backdrop-filter: blur(0px);
             z-index: 10000;
             display: none;
-            transition: background-color 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
-                        backdrop-filter 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+            transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
             pointer-events: none;
         }
         #ficFeedsOverlay.visible {
@@ -90,7 +66,7 @@
             pointer-events: auto;
         }
 
-        /* Основная панель по центру */
+        /* Основная панель */
         #ficFeedsPanel {
             position: absolute;
             top: 50%;
@@ -114,37 +90,18 @@
         }
 
         /* Темная тема */
-        body.dark-theme #ficFeedsPanel {
-            background: #2b2b2b;
-            color: #e6e6e6;
-        }
+        body.dark-theme #ficFeedsPanel { background: #2b2b2b; color: #e6e6e6; }
+        body.dark-theme #ficFeedsPanel h2 { color: #e6e6e6; }
+        body.dark-theme .feedItem { background: #3a3a3a; }
+        body.dark-theme .feedItem:hover { background: #444444; }
+        body.dark-theme .feedName { color: #e6e6e6; }
+        body.dark-theme .feedDesc { color: #b0b0b0; }
+        body.dark-theme #ficFeedsForm input { background: #3a3a3a; color: #e6e6e6; border-color: #555; }
+        body.dark-theme #closeFeedsBtn { color: #e6e6e6; }
+        body.dark-theme #closeFeedsBtn:hover { color: #fff; }
+        body.dark-theme .filterTag { background: #444; color: #ddd; }
 
-        body.dark-theme #ficFeedsPanel h2 {
-            color: #e6e6e6;
-        }
-
-        body.dark-theme .feedItem {
-            background: #3a3a3a;
-        }
-
-        body.dark-theme .feedItem:hover {
-            background: #444444;
-        }
-
-        body.dark-theme .feedName {
-            color: #e6e6e6;
-        }
-
-        body.dark-theme .feedDesc {
-            color: #b0b0b0;
-        }
-
-        body.dark-theme #ficFeedsForm input {
-            background: #3a3a3a;
-            color: #e6e6e6;
-            border-color: #555;
-        }
-
+        /* Заголовок панели */
         #ficFeedsPanel h2 {
             margin: 0 0 16px 0;
             font-size: 20px;
@@ -153,7 +110,7 @@
             text-align: center;
         }
 
-        /* Кнопка "Закрыть" в углу панели */
+        /* Кнопка "Закрыть" */
         #closeFeedsBtn {
             position: absolute;
             top: 10px;
@@ -164,17 +121,7 @@
             cursor: pointer;
             color: #542a00;
         }
-        #closeFeedsBtn:hover {
-            color: #7a3d00;
-        }
-
-        body.dark-theme #closeFeedsBtn {
-            color: #e6e6e6;
-        }
-
-        body.dark-theme #closeFeedsBtn:hover {
-            color: #fff;
-        }
+        #closeFeedsBtn:hover { color: #7a3d00; }
 
         /* Список лент */
         #feedsList {
@@ -207,6 +154,24 @@
             font-size: 14px;
             color: #666;
         }
+
+        /* Фильтры */
+        .feedFilters {
+            margin-top: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .filterTag {
+            background: #e0e0e0;
+            color: #333;
+            font-size: 11px;
+            padding: 3px 6px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        /* Кнопка удаления */
         .deleteFeedBtn {
             position: absolute;
             top: 10px;
@@ -256,11 +221,7 @@
             padding-top: 16px;
             border-top: 1px solid #eee;
         }
-
-        body.dark-theme #ficFeedsForm {
-            border-top-color: #444;
-        }
-
+        body.dark-theme #ficFeedsForm { border-top-color: #444; }
         #ficFeedsForm input {
             width: 100%;
             margin-bottom: 10px;
@@ -283,16 +244,12 @@
             background-color: #542a00;
             color: #fff;
         }
-        #saveFeedBtn:hover {
-            background-color: #7a3d00;
-        }
+        #saveFeedBtn:hover { background-color: #7a3d00; }
         #cancelFeedBtn {
             background-color: #6c757d;
             color: #fff;
         }
-        #cancelFeedBtn:hover {
-            background-color: #5a6268;
-        }
+        #cancelFeedBtn:hover { background-color: #5a6268; }
 
         /* Уведомление */
         #ficFeedsNotification {
@@ -310,330 +267,474 @@
             -webkit-backdrop-filter: blur(10px);
             transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
-        #ficFeedsNotification.show {
-            bottom: 20px;
-        }
+        #ficFeedsNotification.show { bottom: 20px; }
     `);
 
-    // Создаем контейнер для кнопок
-    const buttonsContainer = document.createElement('div');
-    buttonsContainer.id = 'ficFeedsButtonsContainer';
+    // Создаем UI элементы
+    const createElements = () => {
+        // Контейнер для кнопок
+        const buttonsContainer = document.createElement('div');
+        buttonsContainer.id = 'ficFeedsButtonsContainer';
 
-    // Кнопка "Мои ленты"
-    const toggleBtn = document.createElement('button');
-    toggleBtn.id = 'ficFeedsToggle';
-    toggleBtn.textContent = 'Мои ленты';
-    buttonsContainer.appendChild(toggleBtn);
+        // Кнопки
+        const toggleBtn = document.createElement('button');
+        toggleBtn.id = 'ficFeedsToggle';
+        toggleBtn.textContent = 'Мои ленты';
+        toggleBtn.title = 'Открыть панель лент (Alt+L)';
 
-    // Кнопка "Сохранить как ленту"
-    const saveAsLentaBtn = document.createElement('button');
-    saveAsLentaBtn.id = 'saveAsLentaBtn';
-    saveAsLentaBtn.textContent = 'Сохранить как ленту';
-    buttonsContainer.appendChild(saveAsLentaBtn);
+        const saveAsLentaBtn = document.createElement('button');
+        saveAsLentaBtn.id = 'saveAsLentaBtn';
+        saveAsLentaBtn.textContent = 'Сохранить как ленту';
+        saveAsLentaBtn.title = 'Сохранить текущую страницу как ленту (Alt+S)';
 
-    // Добавляем кнопки в верхний правый угол рядом с профилем
-    // Ищем подходящее место для вставки кнопок
-    function insertButtons() {
-        // Ищем элемент профиля в правом верхнем углу
-        const profileArea = document.querySelector('.profile-holder');
+        buttonsContainer.append(toggleBtn, saveAsLentaBtn);
 
-        if (profileArea) {
-            // Вставляем наши кнопки перед профилем
-            profileArea.parentNode.insertBefore(buttonsContainer, profileArea);
-            return true;
+        // Оверлей
+        const overlay = document.createElement('div');
+        overlay.id = 'ficFeedsOverlay';
+
+        // Панель и форма
+        overlay.innerHTML = `
+            <div id="ficFeedsPanel">
+                <button id="closeFeedsBtn">✕</button>
+                <h2>Мои Ленты</h2>
+                <ul id="feedsList"></ul>
+                <button id="addFeedBtn">Добавить ленту</button>
+                <div id="ficFeedsForm">
+                    <input type="text" id="feedName" placeholder="Название ленты">
+                    <input type="text" id="feedDesc" placeholder="Краткое описание">
+                    <input type="text" id="feedURL" placeholder="URL поиска/фильтра">
+                    <input type="hidden" id="feedFilters">
+                    <button id="saveFeedBtn">Сохранить</button>
+                    <button id="cancelFeedBtn">Отмена</button>
+                </div>
+            </div>
+        `;
+
+        // Уведомление
+        const notification = document.createElement('div');
+        notification.id = 'ficFeedsNotification';
+
+        document.body.append(overlay, notification);
+
+        return { buttonsContainer, toggleBtn, saveAsLentaBtn };
+    };
+
+    // Вставляем кнопки в интерфейс
+    const insertButtons = async () => {
+        const { buttonsContainer, toggleBtn, saveAsLentaBtn } = createElements();
+
+        // Пытаемся найти место для вставки кнопок
+        const tryInsert = () => {
+            const profileArea = document.querySelector('.profile-holder');
+            if (profileArea) {
+                profileArea.parentNode.insertBefore(buttonsContainer, profileArea);
+                return true;
+            }
+            return false;
+        };
+
+        // Если не удалось сразу, пробуем через промис с таймаутом
+        if (!tryInsert()) {
+            await new Promise(resolve => {
+                const checkInterval = setInterval(() => {
+                    if (tryInsert()) {
+                        clearInterval(checkInterval);
+                        resolve();
+                    }
+                }, 300);
+
+                // Прекращаем попытки через 5 секунд
+                setTimeout(() => {
+                    clearInterval(checkInterval);
+                    resolve();
+                }, 5000);
+            });
         }
 
-        return false;
-    }
+        return { toggleBtn, saveAsLentaBtn };
+    };
 
-    // Пытаемся вставить кнопки сразу
-    if (!insertButtons()) {
-        // Если не удалось, пробуем через небольшую задержку
-        setTimeout(insertButtons, 1000);
-    }
-
-    // Оверлей (затемнение + blur)
-    const overlay = document.createElement('div');
-    overlay.id = 'ficFeedsOverlay';
-    document.body.appendChild(overlay);
-
-    // Контейнер панели внутри оверлея
-    overlay.innerHTML = `
-        <div id="ficFeedsPanel">
-            <button id="closeFeedsBtn">✕</button>
-            <h2>Мои Ленты</h2>
-            <ul id="feedsList"></ul>
-            <button id="addFeedBtn">Добавить ленту</button>
-            <div id="ficFeedsForm">
-                <input type="text" id="feedName" placeholder="Название ленты">
-                <input type="text" id="feedDesc" placeholder="Краткое описание">
-                <input type="text" id="feedURL" placeholder="URL поиска/фильтра">
-                <button id="saveFeedBtn">Сохранить</button>
-                <button id="cancelFeedBtn">Отмена</button>
-            </div>
-        </div>
-    `;
-
-    // Уведомление
-    const notification = document.createElement('div');
-    notification.id = 'ficFeedsNotification';
-    document.body.appendChild(notification);
-
-    // Ссылки на элементы внутри оверлея
-    const feedsList = overlay.querySelector('#feedsList');
-    const addFeedBtn = overlay.querySelector('#addFeedBtn');
-    const ficFeedsForm = overlay.querySelector('#ficFeedsForm');
-    const feedNameInput = overlay.querySelector('#feedName');
-    const feedDescInput = overlay.querySelector('#feedDesc');
-    const feedURLInput = overlay.querySelector('#feedURL');
-    const saveFeedBtn = overlay.querySelector('#saveFeedBtn');
-    const cancelFeedBtn = overlay.querySelector('#cancelFeedBtn');
-    const closeFeedsBtn = overlay.querySelector('#closeFeedsBtn');
+    // Получаем элементы DOM
+    const { toggleBtn, saveAsLentaBtn } = await insertButtons();
+    const overlay = document.getElementById('ficFeedsOverlay');
+    const panel = document.getElementById('ficFeedsPanel');
+    const feedsList = document.getElementById('feedsList');
+    const addFeedBtn = document.getElementById('addFeedBtn');
+    const ficFeedsForm = document.getElementById('ficFeedsForm');
+    const feedNameInput = document.getElementById('feedName');
+    const feedDescInput = document.getElementById('feedDesc');
+    const feedURLInput = document.getElementById('feedURL');
+    const feedFiltersInput = document.getElementById('feedFilters');
+    const saveFeedBtn = document.getElementById('saveFeedBtn');
+    const cancelFeedBtn = document.getElementById('cancelFeedBtn');
+    const closeFeedsBtn = document.getElementById('closeFeedsBtn');
+    const notification = document.getElementById('ficFeedsNotification');
 
     // Загружаем ленты из хранилища
-    let feeds = GM_getValue('ficFeeds', []);
-    if (typeof feeds === 'string') {
-        try {
-            feeds = JSON.parse(feeds);
-        } catch(e) {
-            feeds = [];
+    let feeds = (() => {
+        const stored = GM_getValue('ficFeeds', []);
+        if (typeof stored === 'string') {
+            try {
+                return JSON.parse(stored);
+            } catch(e) {
+                return [];
+            }
         }
-    }
+        return stored;
+    })();
 
-    // Функция сохранения лент
-    function saveFeeds() {
-        GM_setValue('ficFeeds', JSON.stringify(feeds));
-        renderFeeds();
-    }
-
-    // Отрисовка списка лент
-    function renderFeeds() {
-        feedsList.innerHTML = '';
-        feeds.forEach((feed, index) => {
-            const li = document.createElement('li');
-            li.classList.add('feedItem');
-            li.setAttribute('data-index', index);
-            li.setAttribute('data-url', feed.url);
-
-            // Карточка ленты
-            li.innerHTML = `
-                <div class="feedName">${feed.name}</div>
-                <div class="feedDesc">${feed.description || ''}</div>
-                <button class="deleteFeedBtn" data-index="${index}">Удалить</button>
-            `;
-            feedsList.appendChild(li);
-        });
-    }
-    renderFeeds();
-
-    // Переключение оверлея по кнопке "Ленты"
-    toggleBtn.addEventListener('click', () => {
-        overlay.style.display = 'block';
-        // Добавляем небольшую задержку для анимации
-        setTimeout(() => {
-            overlay.classList.add('visible');
-            overlay.querySelector('#ficFeedsPanel').classList.add('visible');
-        }, 10);
-    });
-
-    // Кнопка "Закрыть" внутри панели - единственный способ закрыть панель
-    closeFeedsBtn.addEventListener('click', () => {
-        const panel = overlay.querySelector('#ficFeedsPanel');
-        overlay.classList.remove('visible');
-        panel.classList.remove('visible');
-
-        // Ждем окончания анимации перед скрытием оверлея
-        setTimeout(() => {
-            overlay.style.display = 'none';
-        }, 500);
-    });
-
-    // Предотвращаем закрытие по клику на оверлей (вне панели)
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) {
-            // Не закрываем панель, чтобы выход был только через крестик
-            e.stopPropagation();
-        }
-    });
-
-    // Клик по списку лент (открытие или удаление)
-    feedsList.addEventListener('click', (e) => {
-        // Удаление
-        if (e.target && e.target.matches('button.deleteFeedBtn')) {
-            const index = e.target.getAttribute('data-index');
-            feeds.splice(index, 1);
-            saveFeeds();
-            showNotification('Лента удалена');
-            return;
-        }
-        // Открытие при клике на саму плашку (кроме кнопки "Удалить")
-        const item = e.target.closest('.feedItem');
-        if (item && !e.target.matches('.deleteFeedBtn')) {
-            const url = item.getAttribute('data-url');
-            window.open(url, '_blank');
-        }
-    });
-
-    // Кнопка "Добавить ленту"
-    addFeedBtn.addEventListener('click', () => {
-        ficFeedsForm.style.display = 'block';
-        feedNameInput.value = '';
-        feedDescInput.value = '';
-        feedURLInput.value = '';
-        feedNameInput.focus();
-    });
-
-    // Кнопка "Сохранить" в форме
-    saveFeedBtn.addEventListener('click', () => {
-        const name = feedNameInput.value.trim();
-        const description = feedDescInput.value.trim();
-        const url = feedURLInput.value.trim();
-
-        if (!name || !url) {
-            alert('Пожалуйста, заполните название и URL ленты');
-            return;
-        }
-
-        // Ограничение на 20 лент
-        if (feeds.length >= 20) {
-            alert('Вы достигли максимального количества лент (20). Удалите неиспользуемые ленты, чтобы добавить новые.');
-            return;
-        }
-
-        feeds.push({
-            name: name,
-            description: description,
-            url: url
-        });
-
-        saveFeeds();
-        ficFeedsForm.style.display = 'none';
-        showNotification('Лента успешно добавлена');
-    });
-
-    // Кнопка "Отмена" в форме
-    cancelFeedBtn.addEventListener('click', () => {
-        ficFeedsForm.style.display = 'none';
-    });
-
-    // Функция для отображения уведомлений
-    function showNotification(message) {
-        notification.textContent = message;
-        notification.classList.add('show');
-
-        setTimeout(() => {
-            notification.classList.remove('show');
-        }, 3000);
-    }
-
-    // Функция для сохранения текущей страницы как ленты
-    function saveCurrentPageAsLenta() {
-        // Получаем текущий URL
-        const currentUrl = window.location.href;
-
-        // Получаем заголовок страницы
-        let pageTitle = '';
-
-        // Пытаемся определить тип страницы и получить подходящее название
-        if (document.querySelector('.fanfic-main-info h1')) {
-            // Страница фанфика
-            pageTitle = document.querySelector('.fanfic-main-info h1').textContent.trim();
-        } else if (document.querySelector('h1.title')) {
-            // Страница с заголовком
-            pageTitle = document.querySelector('h1.title').textContent.trim();
-        } else if (document.querySelector('.find-page-header')) {
-            // Страница поиска
-            pageTitle = 'Поиск: ' + document.querySelector('.find-page-header').textContent.trim();
-        } else {
-            // Используем заголовок документа как запасной вариант
-            pageTitle = document.title.replace(' — Книга Фанфиков', '').trim();
-        }
-
-        // Определяем тип страницы для описания
-        let pageDescription = '';
-
-        if (currentUrl.includes('/readfic/')) {
-            pageDescription = 'Фанфик';
-        } else if (currentUrl.includes('/find-fanfics')) {
-            pageDescription = 'Поиск фанфиков';
-        } else if (currentUrl.includes('/authors/')) {
-            pageDescription = 'Автор';
-        } else if (currentUrl.includes('/fanfiction/')) {
-            pageDescription = 'Фэндом';
-        } else {
-            pageDescription = 'Страница на Ficbook';
-        }
-
-        // Открываем форму добавления ленты
-        overlay.style.display = 'block';
-
-        // Добавляем класс visible для активации анимации и взаимодействия
-        setTimeout(() => {
-            overlay.classList.add('visible');
-            overlay.querySelector('#ficFeedsPanel').classList.add('visible');
-        }, 10);
-
-        ficFeedsForm.style.display = 'block';
-
-        // Заполняем поля формы
-        feedNameInput.value = pageTitle;
-        feedDescInput.value = pageDescription;
-        feedURLInput.value = currentUrl;
-
-        // Фокус на название для возможности редактирования
-        feedNameInput.focus();
-    }
-
-    // Обработчик для кнопки "Сохранить как ленту"
-    saveAsLentaBtn.addEventListener('click', saveCurrentPageAsLenta);
-
-    // Добавляем обработчик клавиатурных сокращений
-    document.addEventListener('keydown', function(e) {
-        // Alt+L для открытия панели лент
-        if (e.altKey && e.key === 'l') {
-            e.preventDefault();
+    // Утилиты
+    const utils = {
+        // Анимированное открытие панели
+        showPanel: () => {
             overlay.style.display = 'block';
             setTimeout(() => {
                 overlay.classList.add('visible');
-                overlay.querySelector('#ficFeedsPanel').classList.add('visible');
+                panel.classList.add('visible');
             }, 10);
+        },
+
+        // Анимированное закрытие панели
+        hidePanel: () => {
+            overlay.classList.remove('visible');
+            panel.classList.remove('visible');
+            setTimeout(() => overlay.style.display = 'none', 500);
+        },
+
+        // Показ уведомления
+        notify: (message) => {
+            notification.textContent = message;
+            notification.classList.add('show');
+            setTimeout(() => notification.classList.remove('show'), 3000);
+        },
+
+        // Парсинг фильтров из URL
+        parseFilters: (url) => {
+            const filters = [];
+            try {
+                const urlObj = new URL(url);
+                const params = new URLSearchParams(urlObj.search);
+
+                // Карта соответствий для фильтров
+                const filterMaps = {
+                    workTypes: {
+                        param: 'work_types[]',
+                        values: {
+                            'fandom': 'Фэндом',
+                            'originals': 'Ориджиналы',
+                            'mixed': 'Смешанное'
+                        }
+                    },
+                    directions: {
+                        param: 'directions[]',
+                        values: {
+                            '1': 'Гет',
+                            '2': 'Слэш',
+                            '3': 'Фемслэш',
+                            '4': 'Джен',
+                            '5': 'Смешанное',
+                            '6': 'Другое'
+                        }
+                    },
+                    ratings: {
+                        param: 'ratings[]',
+                        values: {
+                            '1': 'G',
+                            '2': 'PG-13',
+                            '3': 'R',
+                            '4': 'NC-17'
+                        }
+                    },
+                    status: {
+                        param: 'status',
+                        values: {
+                            'in-progress': 'В процессе',
+                            'finished': 'Завершён',
+                            'freezed': 'Заморожен'
+                        }
+                    },
+                    sort: {
+                        param: 'sort',
+                        values: {
+                            '1': 'По дате обновления',
+                            '2': 'По дате создания',
+                            '3': 'По размеру',
+                            '4': 'По просмотрам',
+                            '5': 'По лайкам',
+                            '6': 'По комментариям',
+                            '7': 'По наградам'
+                        }
+                    }
+                };
+
+                // Обработка фильтров по карте соответствий
+                Object.values(filterMaps).forEach(map => {
+                    if (params.has(map.param)) {
+                        const values = params.getAll(map.param);
+                        values.forEach(val => {
+                            if (map.values[val]) filters.push(map.values[val]);
+                        });
+                    }
+                });
+
+                // Обработка фэндомов
+                if (params.has('fandom_ids[]')) {
+                    const fandomCount = params.getAll('fandom_ids[]').length;
+                    filters.push(`Фэндомов: ${fandomCount}`);
+                }
+
+                // Обработка тегов
+                if (params.has('tags_include[]')) {
+                    const tagsCount = params.getAll('tags_include[]').length;
+                    filters.push(`Теги: ${tagsCount}`);
+                }
+
+                // Обработка исключенных тегов
+                if (params.has('tags_exclude[]')) {
+                    const excludedTagsCount = params.getAll('tags_exclude[]').length;
+                    filters.push(`Исключено тегов: ${excludedTagsCount}`);
+                }
+            } catch (e) {
+                console.error('Error parsing filters:', e);
+            }
+
+            return filters;
+        },
+
+        // Получение информации о текущей странице
+        getPageInfo: () => {
+            const url = window.location.href;
+            let title = '';
+            let description = '';
+
+            // Определение заголовка
+            if (document.querySelector('.fanfic-main-info h1')) {
+                title = document.querySelector('.fanfic-main-info h1').textContent.trim();
+            } else if (document.querySelector('h1.title')) {
+                title = document.querySelector('h1.title').textContent.trim();
+            } else if (document.querySelector('.find-page-header')) {
+                title = 'Поиск: ' + document.querySelector('.find-page-header').textContent.trim();
+            } else {
+                title = document.title.replace(' — Книга Фанфиков', '').trim();
+            }
+
+            // Определение типа страницы
+            if (url.includes('/readfic/')) {
+                description = 'Фанфик';
+            } else if (url.includes('/find-fanfics')) {
+                description = 'Поиск фанфиков';
+            } else if (url.includes('/authors/')) {
+                description = 'Автор';
+            } else if (url.includes('/fanfiction/')) {
+                description = 'Фэндом';
+            } else {
+                description = 'Страница на Ficbook';
+            }
+
+            return { url, title, description };
         }
+    };
 
-        // Alt+S для сохранения текущей страницы как ленты
-        if (e.altKey && e.key === 's') {
-            e.preventDefault();
-            saveCurrentPageAsLenta();
+    // Функции для работы с лентами
+    const feedsManager = {
+        // Сохранение лент
+        save: () => {
+            GM_setValue('ficFeeds', JSON.stringify(feeds));
+            feedsManager.render();
+        },
+
+        // Отрисовка списка лент
+        render: () => {
+            feedsList.innerHTML = '';
+
+            feeds.forEach((feed, index) => {
+                const li = document.createElement('li');
+                li.classList.add('feedItem');
+                li.setAttribute('data-index', index);
+                li.setAttribute('data-url', feed.url);
+
+                // Создаем элементы ленты
+                const nameDiv = document.createElement('div');
+                nameDiv.classList.add('feedName');
+                nameDiv.textContent = feed.name;
+
+                const descDiv = document.createElement('div');
+                descDiv.classList.add('feedDesc');
+                descDiv.textContent = feed.description || '';
+
+                // Контейнер для фильтров
+                const filtersDiv = document.createElement('div');
+                filtersDiv.classList.add('feedFilters');
+
+                // Добавляем фильтры
+                const filters = feed.filters || utils.parseFilters(feed.url);
+                if (!feed.filters && filters.length) {
+                    feed.filters = filters;
+                    feedsManager.save();
+                }
+
+                filters.forEach(filter => {
+                    const tag = document.createElement('span');
+                    tag.classList.add('filterTag');
+                    tag.textContent = filter;
+                    filtersDiv.appendChild(tag);
+                });
+
+                // Кнопка удаления
+                const deleteBtn = document.createElement('button');
+                deleteBtn.classList.add('deleteFeedBtn');
+                deleteBtn.setAttribute('data-index', index);
+                deleteBtn.textContent = 'Удалить';
+
+                // Собираем элементы
+                li.append(nameDiv, descDiv, filtersDiv, deleteBtn);
+                feedsList.appendChild(li);
+            });
+        },
+
+        // Добавление новой ленты
+        add: (name, description, url, filters) => {
+            if (!name || !url) {
+                alert('Пожалуйста, заполните название и URL ленты');
+                return false;
+            }
+
+            if (feeds.length >= 20) {
+                alert('Вы достигли максимального количества лент (20). Удалите неиспользуемые ленты, чтобы добавить новые.');
+                return false;
+            }
+
+            feeds.push({ name, description, url, filters });
+            feedsManager.save();
+            utils.notify('Лента успешно добавлена');
+            return true;
+        },
+
+        // Удаление ленты
+        remove: (index) => {
+            feeds.splice(index, 1);
+            feedsManager.save();
+            utils.notify('Лента удалена');
         }
-    });
+    };
 
-    // Адаптация к темной теме
-    function updateThemeStyles() {
-        const isDarkTheme = document.body.classList.contains('dark-theme');
+    // Обработчики событий
+    const setupEventListeners = () => {
+        // Открытие панели
+        toggleBtn.addEventListener('click', utils.showPanel);
 
-        if (isDarkTheme) {
-            toggleBtn.style.background = '#7a3d00';
-            saveAsLentaBtn.style.background = '#7a3d00';
-        } else {
-            toggleBtn.style.background = '#542a00';
-            saveAsLentaBtn.style.background = '#542a00';
-        }
-    }
+        // Закрытие панели
+        closeFeedsBtn.addEventListener('click', utils.hidePanel);
 
-    // Проверяем тему при загрузке
-    updateThemeStyles();
+        // Предотвращаем закрытие по клику на оверлей
+        overlay.addEventListener('click', e => {
+            if (e.target === overlay) e.stopPropagation();
+        });
 
-    // Отслеживаем изменение темы
-    const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            if (mutation.attributeName === 'class') {
-                updateThemeStyles();
+        // Клик по списку лент (открытие или удаление)
+        feedsList.addEventListener('click', e => {
+            // Удаление
+            if (e.target.matches('.deleteFeedBtn')) {
+                const index = e.target.getAttribute('data-index');
+                feedsManager.remove(index);
+                return;
+            }
+
+            // Открытие
+            const item = e.target.closest('.feedItem');
+            if (item && !e.target.matches('.deleteFeedBtn')) {
+                const url = item.getAttribute('data-url');
+                window.open(url, '_blank');
             }
         });
-    });
 
-    observer.observe(document.body, { attributes: true });
+        // Кнопка "Добавить ленту"
+        addFeedBtn.addEventListener('click', () => {
+            ficFeedsForm.style.display = 'block';
+            feedNameInput.value = '';
+            feedDescInput.value = '';
+            feedURLInput.value = '';
+            feedFiltersInput.value = '';
+            feedNameInput.focus();
+        });
 
-    // Добавляем подсказки о горячих клавишах
-    toggleBtn.title = 'Открыть панель лент (Alt+L)';
-    saveAsLentaBtn.title = 'Сохранить текущую страницу как ленту (Alt+S)';
+        // Сохранение ленты
+        saveFeedBtn.addEventListener('click', () => {
+            const name = feedNameInput.value.trim();
+            const description = feedDescInput.value.trim();
+            const url = feedURLInput.value.trim();
+
+            // Получаем фильтры
+            let filters;
+            try {
+                filters = feedFiltersInput.value ? JSON.parse(feedFiltersInput.value) : utils.parseFilters(url);
+            } catch (e) {
+                filters = utils.parseFilters(url);
+            }
+
+            if (feedsManager.add(name, description, url, filters)) {
+                ficFeedsForm.style.display = 'none';
+            }
+        });
+
+        // Отмена добавления
+        cancelFeedBtn.addEventListener('click', () => {
+            ficFeedsForm.style.display = 'none';
+        });
+
+        // Сохранение текущей страницы
+        saveAsLentaBtn.addEventListener('click', () => {
+            const { url, title, description } = utils.getPageInfo();
+            const filters = utils.parseFilters(url);
+
+            utils.showPanel();
+            ficFeedsForm.style.display = 'block';
+
+            feedNameInput.value = title;
+            feedDescInput.value = description;
+            feedURLInput.value = url;
+            feedFiltersInput.value = JSON.stringify(filters);
+
+            feedNameInput.focus();
+        });
+
+        // Горячие клавиши
+        document.addEventListener('keydown', e => {
+            if (e.altKey && e.key === 'l') {
+                e.preventDefault();
+                utils.showPanel();
+            }
+
+            if (e.altKey && e.key === 's') {
+                e.preventDefault();
+                saveAsLentaBtn.click();
+            }
+        });
+    };
+
+    // Адаптация к темной теме
+    const setupThemeObserver = () => {
+        const updateTheme = () => {
+            const isDarkTheme = document.body.classList.contains('dark-theme');
+            const btnColor = isDarkTheme ? '#7a3d00' : '#542a00';
+            toggleBtn.style.background = btnColor;
+            saveAsLentaBtn.style.background = btnColor;
+        };
+
+        updateTheme();
+
+        const observer = new MutationObserver(mutations => {
+            mutations.forEach(mutation => {
+                if (mutation.attributeName === 'class') updateTheme();
+            });
+        });
+
+        observer.observe(document.body, { attributes: true });
+    };
+
+    // Инициализация
+    feedsManager.render();
+    setupEventListeners();
+    setupThemeObserver();
 })();
