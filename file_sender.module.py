@@ -16,6 +16,7 @@ def open_share_dialog_and_send(plugin, file_path: str):
         File = jclass("java.io.File")
         SendMessagesHelper = jclass("org.telegram.messenger.SendMessagesHelper")
         ArrayList = jclass("java.util.ArrayList")
+        MimeTypeMap = jclass("android.webkit.MimeTypeMap")
 
         fragment = get_last_fragment()
         if not fragment:
@@ -43,7 +44,22 @@ def open_share_dialog_and_send(plugin, file_path: str):
                     paths.add(path.getAbsolutePath())
                     originals.add(path.getAbsolutePath())
                     caption = None
+                    # Определяем MIME по расширению
+                    filename = path.getName()
                     mime = None
+                    try:
+                        if filename and "." in filename:
+                            ext = filename.split(".")[-1].lower()
+                            mtm = MimeTypeMap.getSingleton()
+                            mime = mtm.getMimeTypeFromExtension(ext)
+                    except Exception:
+                        mime = None
+                    if not mime:
+                        # Текстовый по умолчанию для .txt, иначе бинарный
+                        if filename.endswith('.txt'):
+                            mime = "text/plain"
+                        else:
+                            mime = "application/octet-stream"
                     uris = None
                     def do_send():
                         try:
