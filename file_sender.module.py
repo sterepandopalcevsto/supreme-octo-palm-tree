@@ -17,6 +17,7 @@ def open_share_dialog_and_send(plugin, file_path: str):
         SendMessagesHelper = jclass("org.telegram.messenger.SendMessagesHelper")
         ArrayList = jclass("java.util.ArrayList")
         MimeTypeMap = jclass("android.webkit.MimeTypeMap")
+        ApplicationLoader = jclass("org.telegram.messenger.ApplicationLoader")
 
         fragment = get_last_fragment()
         if not fragment:
@@ -39,10 +40,6 @@ def open_share_dialog_and_send(plugin, file_path: str):
                         return True
                     path = File(file_path)
                     log(f"[MFS] Sending file: {path.getAbsolutePath()}")
-                    paths = ArrayList()
-                    originals = ArrayList()
-                    paths.add(path.getAbsolutePath())
-                    originals.add(path.getAbsolutePath())
                     caption = None
                     # Определяем MIME по расширению
                     filename = path.getName()
@@ -60,16 +57,43 @@ def open_share_dialog_and_send(plugin, file_path: str):
                             mime = "text/plain"
                         else:
                             mime = "application/octet-stream"
+
+                    # Копируем файл во внешнее кеш‑хранилище (как в downloader)
+                    try:
+                        ext_cache_root = ApplicationLoader.applicationContext.getExternalCacheDir()
+                        plugin_dir = File(ext_cache_root, "ModularSenderTemp")
+                        if not plugin_dir.exists():
+                            plugin_dir.mkdirs()
+                        external_copy = File(plugin_dir, filename)
+                        log(f"[MFS] Copying to external: {external_copy.getAbsolutePath()}")
+                        with open(path.getAbsolutePath(), 'rb') as f_in, open(external_copy.getAbsolutePath(), 'wb') as f_out:
+                            while True:
+                                chunk = f_in.read(8192)
+                                if not chunk:
+                                    break
+                                f_out.write(chunk)
+                        send_path = external_copy.getAbsolutePath()
+                    except Exception:
+                        # Фолбэк — используем исходный путь
+                        send_path = path.getAbsolutePath()
                     uris = None
                     def do_send():
                         try:
                             for i in range(dids.size()):
                                 dialog = dids.get(i)
                                 did = dialog.dialogId
-                                log(f"[MFS] prepareSendingDocuments -> did={did}")
-                                SendMessagesHelper.prepareSendingDocuments(
-                                    fragment1.getAccountInstance(), paths, originals, uris, caption, mime, did,
-                                    None, None, None, None, None, True, 0, None, None, 0, 0, False, 0
+                                log(f"[MFS] prepareSendingDocument -> did={did}")
+                                # Используем одиночный API, как в downloader
+                                SendMessagesHelper.prepareSendingDocument(
+                                    fragment1.getAccountInstance(),
+                                    send_path,
+                                    send_path,
+                                    None,
+                                    caption,
+                                    mime,
+                                    did,
+                                    None, None, None, None, None,
+                                    True, 0, None, None, 0, False
                                 )
                             fragment1.finishFragment()
                             log("[MFS] DialogsActivity finished after scheduling send")
