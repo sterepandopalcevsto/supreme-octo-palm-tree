@@ -32,9 +32,12 @@ def open_share_dialog_and_send(plugin, file_path: str):
         class Delegate(dynamic_proxy(DialogsActivity.DialogsActivityDelegate)):
             def didSelectDialogs(self, fragment1, dids, message_text, param, notify, scheduleDate, topicsFragment):
                 try:
+                    log("[MFS] didSelectDialogs called")
                     if dids.size() == 0:
+                        log("[MFS] No dialogs selected")
                         return True
                     path = File(file_path)
+                    log(f"[MFS] Sending file: {path.getAbsolutePath()}")
                     paths = ArrayList()
                     originals = ArrayList()
                     paths.add(path.getAbsolutePath())
@@ -42,16 +45,27 @@ def open_share_dialog_and_send(plugin, file_path: str):
                     caption = None
                     mime = None
                     uris = None
-                    for i in range(dids.size()):
-                        dialog = dids.get(i)
-                        did = dialog.dialogId
-                        SendMessagesHelper.prepareSendingDocuments(
-                            fragment1.getAccountInstance(), paths, originals, uris, caption, mime, did,
-                            None, None, None, None, None, True, 0, None, None, 0, 0, False, 0
-                        )
-                    fragment1.finishFragment()
+                    def do_send():
+                        try:
+                            for i in range(dids.size()):
+                                dialog = dids.get(i)
+                                did = dialog.dialogId
+                                log(f"[MFS] prepareSendingDocuments -> did={did}")
+                                SendMessagesHelper.prepareSendingDocuments(
+                                    fragment1.getAccountInstance(), paths, originals, uris, caption, mime, did,
+                                    None, None, None, None, None, True, 0, None, None, 0, 0, False, 0
+                                )
+                            fragment1.finishFragment()
+                            log("[MFS] DialogsActivity finished after scheduling send")
+                        except Exception as e:
+                            BulletinHelper.show_error(str(e))
+                            log(f"[MFS] Error in do_send: {str(e)}")
+
+                    # Выполняем отправку на UI-потоке
+                    run_on_ui_thread(do_send)
                 except Exception as e:
                     BulletinHelper.show_error(str(e))
+                    log(f"[MFS] Error in didSelectDialogs: {str(e)}")
                 return True
 
             def canSelectStories(self):
